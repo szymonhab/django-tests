@@ -1,0 +1,16 @@
+version: '3'
+services:
+  core:
+    build: .
+    ports:
+      - "8000:8000"
+    links:
+      - postgres
+    command: "bash -c 'python manage.py migrate && python manage.py runserver 0.0.0.0:8000'"
+    volumes:
+      - .:/app
+
+  postgres:
+    image: postgres:11
+    volumes:
+      - /var/lib/postgresql/data

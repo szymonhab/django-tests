@@ -1,0 +1,7 @@
+version: '3'
+services:
+  core:
+    environment:
+      MOVIES_API_KEY: mykey
+      SECRET_KEY: django-secret-key
+      DEBUG: 0
