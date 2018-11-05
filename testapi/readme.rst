@@ -9,3 +9,6 @@ without `.example` file extension and enter your own imdb api key.
 
 To run project locally, please ensure that the newest version of docker and
 docker-compose is installed and run `make server`
+
+Project tests can be run by writing `pytest` in docker container after
+`make bash` command.

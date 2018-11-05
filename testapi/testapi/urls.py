@@ -27,8 +27,6 @@ urlpatterns = [
             'get': 'list'
         }), name='movies'
     ),
-    path(
-        'comments/',
-        api.CommentViewSet.as_view(), name='comments'
-    )
+    path('comments/', api.CommentViewSet.as_view(), name='comments'),
+    path('top/', api.TopCommentedMovieViewSet.as_view(), name='top')
 ]

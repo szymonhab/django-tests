@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count, Q
 from rest_framework import generics, viewsets, mixins, status
 from rest_framework.filters import OrderingFilter
 from rest_framework.pagination import PageNumberPagination
@@ -16,6 +17,8 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class MovieViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+
+    """Fetch movie from IMDB database on POST request."""
 
     queryset = Movie.objects.order_by('pk')
     serializer_class = serializers.MovieSerializer
@@ -46,6 +49,8 @@ class MovieViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 class CommentViewSet(generics.ListCreateAPIView):
 
+    """Show and insert movie comments."""
+
     queryset = Comment.objects.order_by('pk')
     serializer_class = serializers.CommentSerializer
     pagination_class = StandardResultsSetPagination
@@ -53,4 +58,24 @@ class CommentViewSet(generics.ListCreateAPIView):
     filter_backends = (DjangoFilterBackend,)
 
 
+class TopCommentedMovieViewSet(generics.ListAPIView):
 
+    """Get movies ordered by their comment number, date filter is required."""
+
+    queryset = Movie.objects.all()
+    serializer_class = serializers.TopCommentedMovieSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        range_serializer = serializers.DateRangeSerializer(
+            data=self.request.query_params
+        )
+        range_serializer.is_valid(raise_exception=True)
+        data = range_serializer.validated_data
+        date_range = (data['date_after'], data['date_before'])
+        return queryset.annotate(
+            total_comments=Count(
+                'comments',
+                filter=Q(comments__created_at__range=date_range)
+            )
+        ).order_by('-total_comments')[0:5]

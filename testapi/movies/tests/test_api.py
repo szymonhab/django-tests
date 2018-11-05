@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 
 import pytest
 import responses
@@ -89,10 +90,25 @@ def different_movie(movie_schema):
 
 
 @pytest.fixture
+def movie_the_same_comment_rank(movie_schema):
+    movie = Movie.objects.create(**dict(movie_schema, imdb_id='movie3'))
+    Comment.objects.create(text='the_same_rank1', movie=movie)
+    Comment.objects.create(text='the_same_rank2', movie=movie)
+    return movie
+
+
+@pytest.fixture
 def comments(movie, different_movie):
     Comment.objects.create(text='test1', movie=movie)
     Comment.objects.create(text='test2', movie=different_movie)
     Comment.objects.create(text='test3', movie=different_movie)
+
+
+@pytest.fixture
+def comment_different_date(movie):
+    comment = Comment.objects.create(text='test4', movie=movie)
+    comment.created_at = datetime(2015, 6, 1)
+    comment.save()
 
 
 @pytest.mark.usefixtures('movie')
@@ -152,7 +168,8 @@ def test_post_comment(client, movie):
     assert comment.text == 'test comment'
     assert comment.movie == movie
     expected_response = {
-        'id': comment.id, 'text': 'test comment', 'movie': 'tt2357596'
+        'id': comment.id, 'text': 'test comment', 'movie': 'tt2357596',
+        'created_at': comment.created_at.replace(tzinfo=None).isoformat() + 'Z'
     }
     assert response.json() == expected_response
 
@@ -169,3 +186,46 @@ def test_filter_comments(client, different_movie):
     response = client.get(f'/comments/?movie={different_movie.imdb_id}')
     comments = set(it['text'] for it in response.json()['results'])
     assert comments == {'test2', 'test3'}
+
+
+@pytest.mark.usefixtures('comments', 'comment_different_date')
+def test_top_movies(
+        client, movie, different_movie, movie_the_same_comment_rank):
+    date_before = (datetime.now().date() + timedelta(days=10)).isoformat()
+    response = client.get(
+        f'/top/?date_after=2017-01-01&date_before={date_before}'
+    )
+    expected_response = [
+        {
+            'imdb_id': different_movie.imdb_id,
+            'total_comments': 2,
+            'rank': 1
+        },
+        {
+            'imdb_id': movie_the_same_comment_rank.imdb_id,
+            'total_comments': 2,
+            'rank': 1
+        },
+        {
+            'imdb_id': movie.imdb_id,
+            'total_comments': 1,
+            'rank': 3
+        }
+    ]
+    different_movie_result, = [
+        it for it in response.json()
+        if it['imdb_id'] == different_movie.imdb_id
+    ]
+    same_rank_result, = [
+        it for it in response.json()
+        if it['imdb_id'] == movie_the_same_comment_rank.imdb_id
+    ]
+    assert different_movie_result == expected_response[0]
+    assert same_rank_result == expected_response[1]
+    assert response.json()[2] == expected_response[2]
+
+
+def test_bad_request_top_movies(client):
+    response = client.get('/top/?date_after=2017-01-01')
+    assert response.status_code == 400
+    assert response.json() == {'date_before': ['This field is required.']}

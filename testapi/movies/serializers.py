@@ -45,3 +45,40 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = '__all__'
+
+
+class TopCommentedMoviesListSerializer(serializers.ListSerializer):
+
+    def to_representation(self, data):
+        result = super().to_representation(data)
+        prev_total_comments = -1
+        prev_rank = 0
+        for i, row in enumerate(result, 1):
+            if prev_total_comments == row['total_comments']:
+                row['rank'] = prev_rank
+            else:
+                row['rank'] = i
+            prev_total_comments = row['total_comments']
+            prev_rank = row['rank']
+
+        return result
+
+
+class TopCommentedMovieSerializer(serializers.ModelSerializer):
+
+    total_comments = serializers.IntegerField()
+
+    def to_representation(self, data):
+        result = super().to_representation(data)
+        return result
+
+    class Meta:
+        model = Movie
+        list_serializer_class = TopCommentedMoviesListSerializer
+        fields = ('imdb_id', 'total_comments')
+
+
+class DateRangeSerializer(serializers.Serializer):
+
+    date_after = serializers.DateField()
+    date_before = serializers.DateField()
