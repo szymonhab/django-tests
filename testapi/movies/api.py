@@ -27,7 +27,7 @@ class MovieViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     pagination_class = StandardResultsSetPagination
 
     def fetch_movies(self, request, *args, **kwargs):
-        title = request.POST.get('title')
+        title = request.data.get('title')
         if not title:
             return Response(
                 'The url parameter "title" is missing.',
